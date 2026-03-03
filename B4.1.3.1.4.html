@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AssignmentX Math Game</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    <style>
+        :root {
+            --glass-bg: rgba(10, 25, 47, 0.98);
+            --glass-border: rgba(0, 210, 255, 0.4); 
+            --mathly-yellow: #f1c40f;
+            --mathly-blue: #00d2ff; 
+            --mathly-red: #ff4757;
+            --mathly-green: #2ecc71;
+            --text-main: #ccd6f6;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        
+        body { 
+            font-family: 'Inter', sans-serif; 
+            background: #0a192f; 
+            min-height: 100vh; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            color: var(--text-main); 
+            overflow: hidden; 
+            position: relative;
+        }
+
+        #bg-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; }
+
+        .screen { 
+            display: none; 
+            width: 95%; 
+            max-width: 500px; 
+            max-height: 95vh;
+            background: var(--glass-bg); 
+            backdrop-filter: blur(25px); 
+            border: 1px solid var(--glass-border); 
+            border-radius: 30px; 
+            padding: 30px; 
+            text-align: center; 
+            z-index: 2; 
+            position: relative; 
+            box-shadow: 0 20px 50px rgba(0,0,0,0.6); 
+            overflow-y: auto;
+        }
+        
+        .active { display: block; animation: zoomIn 0.3s ease-out; }
+        @keyframes zoomIn { from { opacity: 0; transform: scale(0.98); } to { opacity: 1; transform: scale(1); } }
+
+        .internal-header { margin-bottom: 20px; border-bottom: 1px solid rgba(0, 210, 255, 0.1); padding-bottom: 15px; }
+        .header-main { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; }
+        .game-logo { width: 90px; height: 90px; object-fit: contain; filter: drop-shadow(0 0 5px var(--mathly-blue)); }
+        .internal-header h1 { color: var(--mathly-yellow); font-size: 1.4rem; font-weight: 900; text-transform: uppercase; letter-spacing: 2px; margin: 0; }
+        .internal-header .subtitle { font-size: 0.7rem; color: #8892b0; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; margin-top: 5px; display: block; }
+        
+        .btn-main { width: 100%; padding: 16px; border: none; border-radius: 15px; font-weight: 800; cursor: pointer; text-transform: uppercase; margin-top: 10px; transition: 0.2s; font-size: 0.9rem; display: flex; align-items: center; justify-content: center; gap: 10px; }
+        .btn-proceed { background: var(--mathly-blue); color: #0a192f; }
+        .btn-mode { background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); color: white; }
+        .btn-back { background: rgba(255, 71, 87, 0.1); border: 1px solid var(--mathly-red); color: var(--mathly-red); }
+
+        .settings-bar { display: flex; justify-content: center; gap: 8px; margin-top: 20px; padding-top: 15px; border-top: 1px solid rgba(255,255,255,0.05); flex-wrap: wrap; }
+        .btn-setting { background: none; border: 1px solid rgba(255,255,255,0.1); color: #8892b0; padding: 8px 12px; border-radius: 8px; font-size: 0.65rem; font-weight: 700; cursor: pointer; text-transform: uppercase; transition: 0.2s; }
+        
+        /* Visual Scaffold: Fraction Bars */
+        .visual-scaffold { margin: 20px 0; display: flex; flex-direction: column; align-items: center; gap: 10px; min-height: 180px; }
+        .fraction-row { display: flex; gap: 5px; width: 100%; justify-content: center; }
+        .fraction-block { height: 30px; width: 30px; border: 2px solid var(--glass-border); border-radius: 6px; background: rgba(255,255,255,0.05); }
+        .block-filled { background: var(--mathly-green); box-shadow: 0 0 10px var(--mathly-green); }
+
+        .target-box { display: flex; justify-content: center; align-items: center; flex-direction: column; margin-bottom: 15px; }
+        .frac-container { display: flex; flex-direction: column; align-items: center; border: 2px solid var(--mathly-yellow); padding: 10px 20px; border-radius: 15px; font-weight: 900; color: var(--mathly-yellow); }
+        .frac-line { width: 40px; height: 3px; background: var(--mathly-yellow); margin: 5px 0; }
+        .num-val { font-size: 1.8rem; }
+        
+        .mixed-input-group { display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 10px; }
+        .input-whole { width: 80px; font-size: 2.2rem; border-color: var(--mathly-blue); }
+        .input-part { width: 60px; font-size: 1.2rem; padding: 10px; }
+
+        .timer-container { width: 100%; height: 8px; background: rgba(255,255,255,0.1); border-radius: 10px; margin-bottom: 15px; overflow: hidden; }
+        #timer-bar { width: 100%; height: 100%; background: var(--mathly-red); transition: width 1s linear; }
+
+        .lvl-dot { width: 45px; height: 45px; border-radius: 12px; background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); display: flex; align-items: center; justify-content: center; font-weight: 900; cursor: pointer; }
+        .lvl-dot.active-lvl { border-color: var(--mathly-yellow); color: var(--mathly-yellow); box-shadow: 0 0 15px var(--mathly-yellow); }
+        .lvl-dot.locked { opacity: 0.2; cursor: not-allowed; }
+
+        .modal { display: none; position: fixed; inset: 0; background: rgba(2, 12, 27, 0.98); z-index: 1000; justify-content: center; align-items: center; }
+        .modal-content { background: var(--glass-bg); padding: 30px; border-radius: 30px; border: 1px solid var(--mathly-blue); width: 90%; max-width: 420px; text-align: left; }
+        
+        .summary-score { font-size: 4rem; font-weight: 900; color: var(--mathly-yellow); margin: 20px 0; text-shadow: 0 0 20px rgba(241, 196, 15, 0.4); }
+    </style>
+</head>
+<body>
+
+    <canvas id="bg-canvas"></canvas>
+
+    <div id="screen-welcome" class="screen active">
+        <div class="internal-header">
+            <div class="header-main">
+                <img src="logo.png" alt="Logo" class="game-logo">
+                <h1>AssignmentX Fractions, Representation and Relationship</h1>
+                <span class="subtitle">B4.1.3.1.4: Recognise fractions that are greater than one (i.e. improper fractions), draw and label such fractions with their symbols</span>
+            </div>
+        </div>
+        <div style="font-size: 1rem; color: var(--mathly-blue); margin-bottom: 20px; font-weight: 700;">PROMPT: RECODE THE FRACTION</div>
+        <button class="btn-main btn-proceed" onclick="startGameDirectly()">START FORGING</button>
+        <button class="btn-main btn-mode" onclick="toggleModal(true)">📜 MISSION RULES</button>
+        <div class="settings-bar">
+            <button class="btn-setting btn-mute" onclick="toggleAudio()">🔊 SFX: ON</button>
+            <button class="btn-setting" style="color:var(--mathly-red)" onclick="clearProgress()">🗑 RESET</button>
+        </div>
+    </div>
+
+    <div id="screen-game" class="screen">
+        <div class="internal-header">
+            <div class="header-main">
+                <h1 id="lvl-title">Mission Lvl 1</h1>
+                <span class="subtitle" id="pattern-desc">Visual Decoding</span>
+            </div>
+        </div>
+        
+        <div class="timer-container"><div id="timer-bar"></div></div>
+        
+        <div style="display: flex; justify-content: space-between; font-size: 0.85rem; font-weight: 800; margin-bottom: 5px;">
+            <div style="color: var(--mathly-blue);">SYNC: <span id="score">0</span></div>
+            <div style="color: var(--mathly-yellow);">MISSION: <span id="q-count">1</span>/10</div>
+            <div style="color: var(--mathly-red);">⏳ <span id="timer-text">40</span>s</div>
+        </div>
+
+        <div id="feedback-banner" style="height:25px; font-weight:900;"></div>
+
+        <div class="target-box">
+            <div class="frac-container">
+                <div class="num-val" id="numVal">9</div>
+                <div class="frac-line"></div>
+                <div class="num-val" id="denVal">4</div>
+            </div>
+        </div>
+
+        <div class="visual-scaffold" id="scaffold-area"></div>
+
+        <div id="hint-text" style="color:var(--mathly-yellow); font-weight:800; margin-bottom:10px; height:20px; font-size:0.7rem;"></div>
+        
+        <div class="mixed-input-group">
+            <input type="number" id="ansWhole" class="input-whole" placeholder="0" disabled>
+            <div class="frac-container" style="border:none; padding:0;">
+                <input type="number" id="ansNum" class="input-part" placeholder="N" disabled>
+                <div class="frac-line" style="background:var(--text-main)"></div>
+                <input type="number" id="ansDen" class="input-part" placeholder="D" disabled>
+            </div>
+        </div>
+
+        <button class="btn-main btn-proceed" id="submitBtn" style="display:none">SYNC DATA</button>
+        <button class="btn-main btn-proceed" id="startBtn">READY PILOT?</button>
+        
+        <div class="level-map" style="display:flex; justify-content:center; gap:10px; margin-top:10px;">
+            <div class="lvl-dot" id="dot-1" onclick="selectLevel(1)">1</div>
+            <div class="lvl-dot locked" id="dot-2" onclick="selectLevel(2)">🔒</div>
+            <div class="lvl-dot locked" id="dot-3" onclick="selectLevel(3)">🔒</div>
+            <div class="lvl-dot locked" id="dot-4" onclick="selectLevel(4)">🔒</div>
+        </div>
+
+        <div class="settings-bar">
+            <button class="btn-setting btn-back" onclick="location.reload()">🚪 EXIT</button>
+            <button class="btn-setting" style="color:var(--mathly-yellow)" onclick="getHint()">💡 HINT</button>
+            <button class="btn-setting btn-mute" onclick="toggleAudio()">🔊 SFX</button>
+        </div>
+    </div>
+
+    <div id="screen-summary" class="screen">
+        <div class="internal-header">
+            <div class="header-main">
+                <h1>Mission Debrief</h1>
+                <span class="subtitle">Fraction Analysis Success</span>
+            </div>
+        </div>
+        <div class="summary-status" id="summary-status">MISSION SUCCESS</div>
+        <div class="summary-score" id="final-score-val">0</div>
+        <button class="btn-main btn-proceed" onclick="location.reload()">RETURN TO BASE</button>
+    </div>
+
+    <div id="rules-modal" class="modal">
+        <div class="modal-content">
+            <h2 style="color:var(--mathly-yellow); margin-bottom:15px; text-transform:uppercase;">Forge Protocols</h2>
+            <ul style="list-style:none; font-size:0.85rem; line-height:1.6; color:var(--text-main); margin-bottom:20px;">
+                <li>📊 <b style="color:var(--mathly-blue)">OBJECTIVE:</b> Convert Improper Fractions to Mixed Numbers.</li>
+                <li>🧬 <b style="color:var(--mathly-green)">SCAFFOLD:</b> Count the full green bars (Wholes) and remaining blocks.</li>
+                <li>📍 <b style="color:var(--mathly-yellow)">SYMBOLS:</b> Whole Number + Numerator / Denominator.</li>
+                <li>🔓 <b style="color:var(--mathly-red)">LEVELS:</b> Score 50+ to reach Deeper Space.</li>
+            </ul>
+            <button class="btn-main btn-proceed" onclick="toggleModal(false)">I UNDERSTAND</button>
+        </div>
+    </div>
+
+    <script>
+        const bgCanvas = document.getElementById('bg-canvas'); const bgCtx = bgCanvas.getContext('2d');
+        let symbols = [];
+        const MATH_PALETTE = ['#f1c40f', '#00d2ff', '#ff4757', '#2ecc71'];
+        const MATH_CHARS = ['½', '¾', '⅝', '⅔', '¼', '⅐', '⅑'];
+
+        function initBG() {
+            bgCanvas.width = window.innerWidth; bgCanvas.height = window.innerHeight;
+            symbols = Array.from({length: 30}, () => ({
+                x: Math.random() * bgCanvas.width, y: Math.random() * bgCanvas.height,
+                char: MATH_CHARS[Math.floor(Math.random() * MATH_CHARS.length)],
+                color: MATH_PALETTE[Math.floor(Math.random() * MATH_PALETTE.length)],
+                size: Math.floor(Math.random() * 40) + 60, 
+                speed: 0.3 + Math.random() * 0.7,
+                rotation: Math.random() * 6, rotSpeed: (Math.random() - 0.5) * 0.01
+            }));
+        }
+
+        function drawBG() {
+            bgCtx.clearRect(0,0,bgCanvas.width,bgCanvas.height);
+            symbols.forEach(s => { 
+                bgCtx.save(); bgCtx.translate(s.x, s.y); bgCtx.rotate(s.rotation);
+                bgCtx.fillStyle = s.color; bgCtx.globalAlpha = 0.1;
+                bgCtx.font = `900 ${s.size}px Inter`; bgCtx.textAlign = "center";
+                bgCtx.fillText(s.char, 0, 0); bgCtx.restore();
+                s.y -= s.speed; s.rotation += s.rotSpeed;
+                if(s.y < -100) s.y = bgCanvas.height + 100;
+            });
+            requestAnimationFrame(drawBG);
+        }
+        window.addEventListener('resize', initBG); initBG(); drawBG();
+
+        const audioFiles = {
+            bg: new Audio("BGMSound.mp3"),
+            correct: new Audio("correctanswer.mp3"),
+            wrong: new Audio("wronganswer.mp3")
+        };
+        audioFiles.bg.loop = true; audioFiles.bg.volume = 0.2;
+        let isMuted = false;
+
+        function playCorrect() { if (!isMuted) { audioFiles.correct.currentTime = 0; audioFiles.correct.play().catch(() => {}); } }
+        function playWrong() { if (!isMuted) { audioFiles.wrong.currentTime = 0; audioFiles.wrong.play().catch(() => {}); } }
+
+        function toggleAudio() {
+            isMuted = !isMuted;
+            document.querySelectorAll('.btn-mute').forEach(b => b.innerText = isMuted ? "🔇 SFX: OFF" : "🔊 SFX: ON");
+            if (isMuted) audioFiles.bg.pause(); else audioFiles.bg.play().catch(()=>{});
+        }
+
+        let gameData = JSON.parse(localStorage.getItem('fraction_forge_v1')) || { unlockedLevels: [1] };
+        let game = { active: false, score: 0, currentLvl: 1, questionsLeft: 10, currentNum: 0, currentDen: 0, timer: null };
+
+        function saveGame() { localStorage.setItem('fraction_forge_v1', JSON.stringify(gameData)); }
+        function clearProgress() { if(confirm("Erase Mission History?")) { localStorage.removeItem('fraction_forge_v1'); location.reload(); } }
+        function showScreen(id) { document.querySelectorAll('.screen').forEach(s => s.classList.remove('active')); document.getElementById(id).classList.add('active'); if(id === 'screen-game') updateMap(); }
+
+        function startGameDirectly() { 
+            if (!isMuted) { audioFiles.bg.play().catch(() => {}); }
+            showScreen('screen-game'); 
+        }
+
+        function updateMap() {
+            for(let i=1; i<=4; i++){
+                const dot = document.getElementById(`dot-${i}`); const unlocked = gameData.unlockedLevels.includes(i);
+                dot.className = unlocked ? 'lvl-dot' : 'lvl-dot locked'; dot.innerText = unlocked ? i : '🔒';
+                if(game.currentLvl === i) dot.classList.add('active-lvl');
+            }
+            const desc = ["Visual Basics", "Larger Numerators", "Higher Denominators", "Mastery Scrambler"];
+            document.getElementById('pattern-desc').innerText = desc[game.currentLvl-1];
+            document.getElementById('lvl-title').innerText = "Mission Lvl " + game.currentLvl;
+        }
+
+        function generateProblem() {
+            document.getElementById('feedback-banner').innerText = "";
+            let den = Math.floor(Math.random() * (game.currentLvl * 2 + 3)) + 2;
+            let whole = Math.floor(Math.random() * (game.currentLvl + 1)) + 1;
+            let rem = Math.floor(Math.random() * (den - 1)) + 1;
+            
+            game.currentNum = (whole * den) + rem;
+            game.currentDen = den;
+            
+            document.getElementById('numVal').innerText = game.currentNum;
+            document.getElementById('denVal').innerText = game.currentDen;
+
+            const area = document.getElementById('scaffold-area');
+            area.innerHTML = "";
+            
+            // Build Visual Scaffold
+            let totalBlocks = game.currentNum;
+            let currentWhole = 0;
+            while(totalBlocks > 0) {
+                const row = document.createElement('div');
+                row.className = 'fraction-row';
+                for(let i=0; i<den; i++) {
+                    const block = document.createElement('div');
+                    block.className = 'fraction-block';
+                    if(totalBlocks > 0) {
+                        block.classList.add('block-filled');
+                        totalBlocks--;
+                    }
+                    row.appendChild(block);
+                }
+                area.appendChild(row);
+            }
+
+            document.getElementById('q-count').innerText = 11 - game.questionsLeft;
+            document.getElementById('hint-text').innerText = "";
+            const inputs = ['ansWhole', 'ansNum', 'ansDen'];
+            inputs.forEach(id => { 
+                const el = document.getElementById(id);
+                el.value = ""; el.disabled = false;
+            });
+            document.getElementById('ansWhole').focus();
+            resetTimer();
+        }
+
+        function handleFeedback(isCorr) {
+            clearInterval(game.timer);
+            const banner = document.getElementById('feedback-banner');
+            const inputs = ['ansWhole', 'ansNum', 'ansDen'];
+            inputs.forEach(id => document.getElementById(id).disabled = true);
+            
+            if(isCorr) {
+                game.score += 10;
+                banner.innerText = "✓ SYNCED! MIXED FORM LOCKED";
+                banner.style.color = "var(--mathly-green)";
+                playCorrect();
+            } else {
+                let w = Math.floor(game.currentNum / game.currentDen);
+                let r = game.currentNum % game.currentDen;
+                banner.innerText = `✗ ERROR! CORRECT: ${w} ${r}/${game.currentDen}`;
+                banner.style.color = "var(--mathly-red)";
+                playWrong();
+            }
+            document.getElementById('score').innerText = game.score;
+            game.questionsLeft--;
+            setTimeout(() => { if(game.questionsLeft > 0) generateProblem(); else endMission(); }, 2000);   
+        }
+
+        function resetTimer() {
+            clearInterval(game.timer); let t = 40;
+            game.timer = setInterval(() => { 
+                t--; 
+                document.getElementById('timer-text').innerText = t; 
+                document.getElementById('timer-bar').style.width = (t/40)*100 + "%"; 
+                if(t <= 0) handleFeedback(false); 
+            }, 1000);
+        }
+
+        function getHint() {
+            document.getElementById('hint-text').innerText = `HINT: How many rows are completely filled?`;
+        }
+
+        function endMission() {
+            game.active = false;
+            clearInterval(game.timer);
+            const unlockHappened = (game.score >= 50 && game.currentLvl < 4 && !gameData.unlockedLevels.includes(game.currentLvl + 1));
+            if(unlockHappened) { gameData.unlockedLevels.push(game.currentLvl + 1); saveGame(); }
+            document.getElementById('final-score-val').innerText = game.score;
+            document.getElementById('summary-status').innerText = game.score >= 50 ? "MISSION SUCCESS" : "MISSION INCOMPLETE";
+            showScreen('screen-summary');
+        }
+
+        function selectLevel(l) { if(gameData.unlockedLevels.includes(l)) { game.currentLvl = l; updateMap(); } }
+
+        document.getElementById('startBtn').onclick = () => {
+            game.active = true; game.score = 0; game.questionsLeft = 10;
+            document.getElementById('startBtn').style.display = 'none';
+            document.getElementById('submitBtn').style.display = 'block';
+            generateProblem();
+        };
+
+        document.getElementById('submitBtn').onclick = () => { 
+            const w = parseInt(document.getElementById('ansWhole').value);
+            const n = parseInt(document.getElementById('ansNum').value);
+            const d = parseInt(document.getElementById('ansDen').value);
+            
+            const targetW = Math.floor(game.currentNum / game.currentDen);
+            const targetN = game.currentNum % game.currentDen;
+            const targetD = game.currentDen;
+
+            handleFeedback(w === targetW && n === targetN && d === targetD);
+        };
+
+        function toggleModal(s) { document.getElementById('rules-modal').style.display = s ? 'flex' : 'none'; }
+    </script>
+</body>
+</html>
